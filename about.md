@@ -4,13 +4,15 @@ title: About
 permalink: /about/
 ---
 
-I'm a Machine Learning Engineer from the UK.
+### In Brief
+I'm Harry Julian, a Machine Learning Engineer from Manchester. 
 
-My formal academic background is in psychology and neuroscience, but I managed to get a little bit obsessed with machine learning somewhere along the way. 
+My academic background is in experimental psychology and neuroscience; I got started in machine learning by training neural networks on brain imaging data. 
 
-In my current role, I spend most of my time working on large models for speech and language applications. When I'm trying to convince myself to have some work-life balance and I'm not working on machine learning projects in my spare time, I'm probably running.
+Since graduating, I've worked at a couple of startups, and I currently spend most of my time working on large models for NLP and ASR.
 
-# Research Interests
-- Biolgically inspired deep learning.
-- Large model compression.
-- Reliable, hype-immune methods to translate LLMs into useful, user-focused products.
+
+### Research Interests
+- How can we translate LLMs into useful, efficient, user-focused products?
+- How does a Transformers compress it's training data? To what extent can we compress a Transformer? Are there any theoretical limits connecting the answers to these questions?
+- Biologically-inspired deep learning.
