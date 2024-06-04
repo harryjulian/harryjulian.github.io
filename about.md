@@ -4,7 +4,6 @@ title: About
 permalink: /about/
 ---
 
-### In Brief
 I'm Harry Julian, a Machine Learning Engineer based in the UK. 
 
 My academic background is in experimental psychology and neuroscience; I got started in machine learning by training neural networks on brain imaging data. 
