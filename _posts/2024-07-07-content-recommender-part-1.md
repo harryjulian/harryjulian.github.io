@@ -1,6 +1,6 @@
 ---
 layout: post
-title: Building a technical content recommender, part 1
+title: Building a Technical Content Recommender, Part 1
 ---
 
 I really enjoy reading well-written, interesting technical content; in order to keep up-to-date with the breakneck speed at which AI has been moving for the past couple of years, it's an essential task. However, distinguishing signal from noise can be difficult when you're deciding to spend your most valuable resource (time) consuming a piece of content, and occasionally wasting it.
@@ -11,28 +11,58 @@ Anyway, to the point: I decided to keep my content-fix fed and minimize my expos
 
 # Aims
 
-I thought I'd get cracking on building out whatever mechanical code I needed to give me a chance to think about how I wanted to approach any training or modelling. I put together a little list of essentials for the first stage of the project:
+I thought I'd get cracking on building out whatever mechanical code I needed to give me a chance to think about how I wanted to approach any training or modelling. I put together a little list of essentials for the first stage of the project. The service should:
 
-- The service must be efficient to run from my M1 Macbook.
-- The service should pull recommendations from latest content, rate and rank them, then send top N recommendations to my email.
-- The service should to integrate a prompt describing the type of content I want to read.
-- The service should be built to accomodate a way of recording preference data for future fine-tuning.
-- The service should integrate information about previously read articles into it's recommendations.
-
-# Building the engine
+- Be efficient enough to run from my M1 Macbook.
+- Pull recommendations from latest content, rate and rank them, then send top N recommendations to my email.
+- When rating new content, it will consider: i) the articles I've previously read and ii) a written prompt describing the type of articles I want to read going forwards.
+- Have a way for me to enter preference data about recommended articles - and then a means of ingesting this back into the system to update datasets. 
 
 This was my intial idea for how the system was going to work. I'd originally thought I might be able to embed a form for rating preference data in the email but this seemed to be a bit troublesome (and generally a bad idea), so I went with Airtable instead route. I did consider a google form but I took a look at the python API and...refused.
 
-![Rough Architecture Diagram](/assets/images/recommender-service.png)
+
+<style>
+  .image-container {
+    text-align: center;
+  }
+  .image-container figure {
+    margin: 0;  /* Remove default figure margin */
+  }
+  .image-container img {
+    max-width: 50%;
+    height: auto;
+  }
+  .image-container figcaption {
+    font-style: italic;
+    color: #666;  /* Gray color for the caption */
+  }
+</style>
+
+<div class="image-container">
+  <figure>
+    <img src="/assets/images/recommender-service.png" alt="Description of the image">
+    <figcaption>A hacked together system diagram.</figcaption>
+  </figure>
+</div>
 
 ## Pulling latest content
 
 At the moment if I'm looking to keep up to date, I'll probably surf `hackernews` or `arxiv` to see if there's anything that catches my eye. I decided to write crawlers for these sites first. Unsurprisingly, the first single-threaded iteration of the crawlers were incredibly slow, having to wait for the respective APIs to repeatedly respond - adding a little bit of multithreading with `concurrent.futures` worked a dream as expected. Here's an excerpt, - I also wrote some other functions for hackernews and arxiv in particular as they have helpful APIs/packages associated with them.
 
 ```python
+from typing import Optional
+import itertools
+import concurrent
+import requests
+import json
+from bs4 import BeautifulSoup
+from dataclasses import dataclass
+
+
 ABSTRACT_SIZE = 512
 
-dataclass(slots=True)
+
+@dataclass(slots=True)
 class IndexItem:
     title: str
     url: str
@@ -183,4 +213,21 @@ def send_email(content: str, date: str, sender_email: str, receiver_email: str, 
 
 And there we have an email, sent directly into our inbox!
 
-![Rough Architecture Diagram](/assets/images/recommender-email.png)
+<style>
+  .image-container {
+    text-align: center;
+  }
+  .image-container figure {
+    margin: 0;  /* Remove default figure margin */
+  }
+  .image-container img {
+    max-width: 50%;
+    height: auto;
+  }
+</style>
+
+<div class="image-container">
+  <figure>
+    <img src="/assets/images/recommendation-email.png" alt="Recommendation email.">
+  </figure>
+</div>
