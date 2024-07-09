@@ -1,24 +1,27 @@
 ---
 layout: post
-title: Building a Technical Content Recommender, Part 1
+title: Building a Technical Content Recommender, Part 1 - The System
 ---
 
-I really enjoy reading well-written, interesting technical content; in order to keep up-to-date with the breakneck speed at which AI has been moving for the past couple of years, it's an essential task. However, distinguishing signal from noise can be difficult when you're deciding to spend your most valuable resource (time) consuming a piece of content, and occasionally wasting it.
+There's not much I enjoy more than finding well-written and interesting technical content to read. However, keeping up with the breakneck speed at which machine learning has been moving for the past two years can be nothing short of exhausting (The amount of arxiv papers published daily about ml [roughly doubles every two years)](https://x.com/MarioKrenn6240/status/1577102743927652354). 
 
-There is simply too much choice. The amount of arxiv papers published daily about AI [roughly doubles every two years](https://x.com/MarioKrenn6240/status/1577102743927652354). My old go-to forcutting through the noise was Twitter, where I'd be presented with a nicely written thread on some sort of new or obscure topic that I was interested in - but now I'm only presented with new flavours of increasingly obscure propoganda. Thanks Elon!
+When you're choosing something to read it's hard to distinguish the signal from the noise. Old twitter used to be fantastic for this sort of thing, where I was often recommedned nice concise threads about fascinating machine learning subtopics I'd never heard of. Unfortunately, I'm now I'm only presented with new flavours of increasingly obscure propoganda. Thanks Elon!
 
-Anyway, to the point: I decided to keep my content-fix fed and minimize my exposure to opportunites for doom-scrolling, I should build a recommender for technical content based on my own tastes. I want to design a basic system that gives me a bit of room to play with embeddings and langauge models to make recommendations, as well as potentially integrating some agentic candidate discovery down the line...
 
-# Aims
+# The Plan
 
-I thought I'd get cracking on building out whatever mechanical code I needed to give me a chance to think about how I wanted to approach any training or modelling. I put together a little list of essentials for the first stage of the project. The service should:
+First things first, I thought I'd get cracking on building out the mechanical elements of a personal recommendation system before I considered explicitly HOW I should be making recommendations - this was largely driven by the fact I'd never built a recommender before, so gave me a bit of time to do some reading and let my ideas ruminate whilst still making progress. 
+
+To start with, I laid out some basic requirements, where the system should:
 
 - Be efficient enough to run from my M1 Macbook.
 - Pull recommendations from latest content, rate and rank them, then send top N recommendations to my email.
 - When rating new content, it will consider: i) the articles I've previously read and ii) a written prompt describing the type of articles I want to read going forwards.
-- Have a way for me to enter preference data about recommended articles - and then a means of ingesting this back into the system to update datasets. 
+- Have a way for me to enter preference data about recommended articles - and then a means of ingesting this back into the system to update datasets and improve models. 
 
-This was my intial idea for how the system was going to work. I'd originally thought I might be able to embed a form for rating preference data in the email but this seemed to be a bit troublesome (and generally a bad idea), so I went with Airtable instead route. I did consider a google form but I took a look at the python API and...refused.
+The first 3 requirements are somewhat straightforward: I need to write some web crawlers for candidate generation, initially for websites of interest or that I frequent, devise a model to rate the content given my preferences and previously read content, and then find a way to serve them. 
+
+With regards to serving the recommendations, I wanted to send them to an external system that I can access on the go, as this is when I do the bulk of my reading. I'd initially considered embedding a form into the email I was going to send to my main email address, but found that embedding forms in emails isn't very easy or at all recommended. I did consider using google forms but the Python API seemed dreadfuul so I ended up making a bit of a snap decision to serve my recommendations in Airtable. 
 
 
 <style>
@@ -47,7 +50,7 @@ This was my intial idea for how the system was going to work. I'd originally tho
 
 ## Pulling latest content
 
-At the moment if I'm looking to keep up to date, I'll probably surf `hackernews` or `arxiv` to see if there's anything that catches my eye. I decided to write crawlers for these sites first. Unsurprisingly, the first single-threaded iteration of the crawlers were incredibly slow, having to wait for the respective APIs to repeatedly respond - adding a little bit of multithreading with `concurrent.futures` worked a dream as expected. Here's an excerpt, - I also wrote some other functions for hackernews and arxiv in particular as they have helpful APIs/packages associated with them.
+At the moment if I'm looking to keep up to date, I'll probably surf `hackernews` or `arxiv` to see if there's anything that catches my eye - thus, I decided to write crawlers for these sites first. Unsurprisingly, the first single-threaded iterations of the crawlers were incredibly slow, having to wait for the respective APIs to respond sequentially - adding a little bit of multithreading with `concurrent.futures` worked a dream to speed this up, as expected. Here's an excerpt - I also wrote some other functions for hackernews and arxiv in particular as they have helpful APIs/packages associated with them.
 
 ```python
 from typing import Optional
@@ -69,12 +72,6 @@ class IndexItem:
     content: str
     rating: Optional[float] = None
 
-    def for_airtable(self):
-        """Convenience func to get necessary info from obj for airtable push."""
-        return {
-            "url": self.url
-        }
-    
 
 def item_from_soup(soup: BeautifulSoup, url: str, abstract_size: int = ABSTRACT_SIZE) -> IndexItem:
     title = soup.title.string if soup.title.string else "untitled article"
@@ -106,7 +103,7 @@ def crawl_pages(urls: list[str], max_workers: int = 10) -> list[IndexItem]:
 
 ## Rating and Ranking with an LLM
 
-I had a few ideas when it came to an initial approach for rating articles.
+I had a few ideas when it came to a first approach for rating articles.
 
 - A: start with `sentence_transformers`, embed each previously read article and then compute a weighted rating for new articles based on i) similarity to my written preferences and ii) similarity with my previously read articles.
 - B: try zero-shotting a quantised LLM with constrained generation, courtesy of `outlines`, it's support for `MLX`, and the handy GPU in my M1 Mac.
@@ -145,9 +142,17 @@ def rate_content(user_preferences: str, content: str, model):
         return None
 ```
 
+For the time being I've left ranking incredibly simple -- selecting the top N articles with the highest ratings.
+
+```python
+# Naive ranking based on scores, pull top n
+sorted_index = sorted(index, key = lambda item: item.rating)
+items_to_recommend = sorted_index[-RECOMMEND_TOP_N:]
+```
+
 ## Serving Recommendations
 
-Once we've rated the articles and selected those that will be recommended, we need to devise a way of getting them into some sort of table or form that we can pull preference data from at some point. ...
+Once we've rated the articles and selected those that will be recommended, we need to devise a way of getting them into some sort of table or form that we can pull preference data from at some point. I defined a simple airtable schema which creates a table with the columns `title`, `url` and a `preference` column where I can leave a 👍 or 👎 preference rating. Everytime the system runs, we then create a new airtable labelled as `f"recommendations {date}"`, push the data to the table, and then grab the `base` and `table` ids needed to generate a link to the table of which we'll embed in the email.
 
 ```python
 import pandas as pd
@@ -211,7 +216,7 @@ def send_email(content: str, date: str, sender_email: str, receiver_email: str, 
     return True
 ```
 
-And there we have an email, sent directly into our inbox!
+And there we have an email, sent directly into my inbox.
 
 <style>
   .image-container {
@@ -231,3 +236,7 @@ And there we have an email, sent directly into our inbox!
     <img src="/assets/images/recommendation-email.png" alt="Recommendation email.">
   </figure>
 </div>
+
+# Next Steps
+
+I've got a nice functional recommendation system - but currently failing to make many decent recommendations. Next, I think I'm going do some more reading and have a go at augmenting my existing dataset of previously read articles with some negative examples, and then think about doing some supervised fine-tuning.
