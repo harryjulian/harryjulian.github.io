@@ -39,6 +39,8 @@ jobs:
           ruby-version: '3.1' # Not needed with a .ruby-version file
           bundler-cache: true # runs 'bundle install' and caches installed gems automatically
           cache-version: 0 # Increment this number if you need to re-download cached gems
+
+      # dependency injection!
       - name: Update Google Analytics ID
         run: |
           GOOGLE_ANALYTICS_TAG='${{ secrets.GOOGLE_ANALYTICS_TAG }}'
@@ -48,6 +50,7 @@ jobs:
           grep -q "$ESCAPED_TAG" _includes/google-analytics.html && echo "Replacement successful" || echo "Replacement failed"
           echo "Number of occurrences of the tag:"
           grep -c "$ESCAPED_TAG" _includes/google-analytics.html
+  
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v4
