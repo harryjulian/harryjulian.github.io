@@ -41,7 +41,9 @@ jobs:
           cache-version: 0 # Increment this number if you need to re-download cached gems
       - name: Update Google Analytics ID
         run: |
-          sed -i 's/{{ site\.google_analytics }}/${{ secrets.GOOGLE_ANALYTICS_TAG }}/g' _includes/google-analytics.html
+          GOOGLE_ANALYTICS_ID='${{ secrets.GOOGLE_ANALYTICS_ID }}'
+          ESCAPED_ID=$(printf '%s\n' "$GOOGLE_ANALYTICS_ID" | sed -e 's/[\/&]/\\&/g')
+          sed -i "s/{{ site.google_analytics }}/${ESCAPED_ID}/g" _includes/google-analytics.html
       - name: Setup Pages
         id: pages
         uses: actions/configure-pages@v4
