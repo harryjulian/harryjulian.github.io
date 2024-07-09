@@ -3,25 +3,29 @@ layout: post
 title: Building a Technical Content Recommender, Part 1 - The System
 ---
 
-There's not much I enjoy more than finding well-written and interesting technical content to read. However, keeping up with the breakneck speed at which machine learning has been moving for the past two years can be nothing short of exhausting (The amount of arxiv papers published daily about ml [roughly doubles every two years)](https://x.com/MarioKrenn6240/status/1577102743927652354). 
+I enjoy reading well-written technical content whenever and wherever it presents itself to me. However, keeping up with the breakneck speed at which machine learning has been moving for the past two years can be little short of exhausting sometimes (for example: the amount of arXiv papers published daily about ML/AI [roughly doubles every two years)](https://x.com/MarioKrenn6240/status/1577102743927652354). 
 
-When you're choosing something to read it's hard to distinguish the signal from the noise. Old twitter used to be fantastic for this sort of thing, where I was often recommedned nice concise threads about fascinating machine learning subtopics I'd never heard of. Unfortunately, I'm now I'm only presented with new flavours of increasingly obscure propoganda. Thanks Elon!
+Keeping up can be a chore, and it can be hard to distinguish the signal from the noise when choosing something to read. Old twitter used to be fantastic for this sort of thing: I was often recommended nice, concise threads about fascinating machine learning subtopics I'd never heard of. Unfortunately, now, I'm only presented with new flavours of increasingly obscure propoganda. Thanks Elon!
+
+This problem inspired me to set out on trying to create a personalised technical content recommender, just for me.
 
 
 # The Plan
 
-First things first, I thought I'd get cracking on building out the mechanical elements of a personal recommendation system before I considered explicitly HOW I should be making recommendations - this was largely driven by the fact I'd never built a recommender before, so gave me a bit of time to do some reading and let my ideas ruminate whilst still making progress. 
+First things first, I thought I'd get cracking on building out the mechanical elements of the system before I really consider how I'd be rating and ranking recommendations - mainly because I hadn't yet had a chance to read any literature about text recommendation systems.
 
-To start with, I laid out some basic requirements, where the system should:
+To start with, I laid out some basic requirements:
 
-- Be efficient enough to run from my M1 Macbook.
-- Pull recommendations from latest content, rate and rank them, then send top N recommendations to my email.
+- The system should be efficient enough to run from my M1 Macbook (using MLX and my GPUs?).
+- It should pull recommendations from latest content, rate and rank them, then send the top N rated articles to my email.
 - When rating new content, it will consider: i) the articles I've previously read and ii) a written prompt describing the type of articles I want to read going forwards.
-- Have a way for me to enter preference data about recommended articles - and then a means of ingesting this back into the system to update datasets and improve models. 
+- Have a way for me to collect preference data about the recommended articles - and then a means of ingesting this back into the system to update datasets and improve models. 
 
-The first 3 requirements are somewhat straightforward: I need to write some web crawlers for candidate generation, initially for websites of interest or that I frequent, devise a model to rate the content given my preferences and previously read content, and then find a way to serve them. 
+The first 3 requirements are somewhat straightforward, encompassing writing some web crawlers for candidate generation, devising a quick model to rate the content given my preferences and previously read content, and then finding a way to push them into an external system. 
 
-With regards to serving the recommendations, I wanted to send them to an external system that I can access on the go, as this is when I do the bulk of my reading. I'd initially considered embedding a form into the email I was going to send to my main email address, but found that embedding forms in emails isn't very easy or at all recommended. I did consider using google forms but the Python API seemed dreadfuul so I ended up making a bit of a snap decision to serve my recommendations in Airtable. 
+When it comes to serving the recommendations, I chose to ensure they're sent to an **external system** so that I can access them on the go - as this is when I do the bulk of my reading. I'd initially considered embedding a form into the email I was going to send to my main email address, but discovered this is a pain for a few reasons. I did consider using google forms, but the Python API appeared to be needlessly complicated and it didn't really matter what service I chose, as long as it did what I wanted it to do.
+
+I ended up going with Airtable as the free tier seemed to cover what I wanted from a service. I guess we'll find out if that was a good decision or not.
 
 
 <style>
@@ -50,11 +54,12 @@ With regards to serving the recommendations, I wanted to send them to an externa
 
 ## Pulling latest content
 
-At the moment if I'm looking to keep up to date, I'll probably surf `hackernews` or `arxiv` to see if there's anything that catches my eye - thus, I decided to write crawlers for these sites first. Unsurprisingly, the first single-threaded iterations of the crawlers were incredibly slow, having to wait for the respective APIs to respond sequentially - adding a little bit of multithreading with `concurrent.futures` worked a dream to speed this up, as expected. Here's an excerpt - I also wrote some other functions for hackernews and arxiv in particular as they have helpful APIs/packages associated with them.
+I thought I'd start with writing crawlers for `arXiv` and `hackernews`, as these seemed like low-hanging fruit.
+
+I wrote a single-threaded crawler at first, which was (unsuprisingly) slow. Adding multithreading was as easy as using `concurrent.futures.ThreadPoolExecutor`, and my issue was solved. Here's the basic crawling function for any arbitrary page - I specialised the functions for `arXiv` and `hackernews` to use their public APIs for a ease of use, but haven't included them to keep this concise. I defined an `ABSTRACT_SIZE` constant which determined how many characters would be saved as 'content', for efficiency when passing all of the articles through the model - this value could be too short at the moment, but it's just a placeholder for development. There's also a distinct lack of retry logic and error-handling, which I should probably sort out...
 
 ```python
 from typing import Optional
-import itertools
 import concurrent
 import requests
 import json
@@ -62,7 +67,7 @@ from bs4 import BeautifulSoup
 from dataclasses import dataclass
 
 
-ABSTRACT_SIZE = 512
+ABSTRACT_SIZE = 512 # Determines how much of the content we're saving into the object to be passed to our model
 
 
 @dataclass(slots=True)
@@ -85,6 +90,7 @@ def item_from_soup(soup: BeautifulSoup, url: str, abstract_size: int = ABSTRACT_
 
 
 def crawl_pages(urls: list[str], max_workers: int = 10) -> list[IndexItem]:
+    """Given a list of urls, retrieve and parse content."""
 
     def _crawl_page(url):
         try:
@@ -108,7 +114,7 @@ I had a few ideas when it came to a first approach for rating articles.
 - A: start with `sentence_transformers`, embed each previously read article and then compute a weighted rating for new articles based on i) similarity to my written preferences and ii) similarity with my previously read articles.
 - B: try zero-shotting a quantised LLM with constrained generation, courtesy of `outlines`, it's support for `MLX`, and the handy GPU in my M1 Mac.
 
-I played around with embeddings for a little while, trundled through a load of VectorDB documentation and eventually threw it all in the bin for this simple zero-shot LLM rating mechanism. That was a little bit of a mistake. I failed to get a range of models to solely generate either constrained probabilities or ratings between 0 and 100 - even with structured generation (working theory: something to do with the way the tokens aren't trained for generating individual numbers?). I moved to this `generate.json` method, which works a bit better, but still not without a model as large as `Phi-3-mini`. I'll be replacing this in the next article, but oh well, I wanted to crack through writing the engine mostly and this does provide us with a proxy of a rating.
+I played around with embeddings for a little while, trundled through a load of VectorDB documentation and eventually threw it all in the bin for this simple zero-shot LLM rating mechanism. That was a little bit of a mistake. I failed to get a few different models to solely generate either constrained probabilities or ratings between 0 and 100, even with regex constrained generation (working theory: something to do with the tokenization, or lack of, of individual numbers?). I moved to the `generate.json` method, which works a little better, but only with a model as large as a 4-bit quantized `Phi-3-mini`. I'll be replacing rating mechanism in the next article, but oh well, I wanted to crack through writing the engine and this does provide us with a proxy of a rating for now. I'm keen to keep this setup to see if I can improve a smaller model on this task with some fine-tuning.
 
 
 ```python
@@ -127,8 +133,8 @@ def _format_rating_prompt(user_preferences: str, content_abstract: str):
     You will be provided with the user's request, outlining the type of technical content they are interested
     in receiving and a piece of technical content scraped from the internet. Leave a relevance rating for the piece of content, based on how likely the user is to want to read it. Though the rating should reflect overlap between their topics of interest, don't be afraid to recommend great pieces slightly outside of these preferences if the style of the piece overlaps. The rating value should be between 0 and 100.
     
-    User Preferences: {{ user_preferences }}
-    Content Abstract: {{ content_abstract }}
+    User Preferences: {% raw %}{{ user_preferences }}{% endraw %}
+    Content Abstract: {% raw %}{{ content_abstract }}{% endraw %}
 
     Answer with JSON, where the JSON should be a dictionary with the key "rating" between 0 and 100.
     """
@@ -142,7 +148,7 @@ def rate_content(user_preferences: str, content: str, model):
         return None
 ```
 
-For the time being I've left ranking incredibly simple -- selecting the top N articles with the highest ratings.
+For the time being I've kept the ranking component simple -- selecting the top N articles with the highest ratings.
 
 ```python
 # Naive ranking based on scores, pull top n
@@ -152,7 +158,7 @@ items_to_recommend = sorted_index[-RECOMMEND_TOP_N:]
 
 ## Serving Recommendations
 
-Once we've rated the articles and selected those that will be recommended, we need to devise a way of getting them into some sort of table or form that we can pull preference data from at some point. I defined a simple airtable schema which creates a table with the columns `title`, `url` and a `preference` column where I can leave a 👍 or 👎 preference rating. Everytime the system runs, we then create a new airtable labelled as `f"recommendations {date}"`, push the data to the table, and then grab the `base` and `table` ids needed to generate a link to the table of which we'll embed in the email.
+Once we've rated the articles and selected those that will be recommended, we need to devise a way of getting them into some sort of table or form that we can pull preference data from when we need to. I defined a simple airtable schema which creates a table with the columns `title`, `url` and a `preference` column where I can leave a 👍 or 👎 preference rating. Everytime the system runs, we then create a new airtable labelled as `Recommendations {{ date }}`, push the data to the table, and then grab the `base` and `table` ids needed to generate a link to the table, of which we'll embed in the email.
 
 ```python
 import pandas as pd
@@ -192,7 +198,47 @@ def create_recommendation_airtable(items_to_recommend, date: str, api: Api) -> s
 Fantastic. All we need to do is write a bit of html to embed our link into (thanks Claude) and send the email over SMTP.
 
 ```python
-def send_email(content: str, date: str, sender_email: str, receiver_email: str, app_password: str):
+import os
+import smtplib
+from string import Template
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+
+AIRTABLE_BASE_URL = "https://airtable.com/"
+
+
+def format_email(base_id: str, table_id: str, date: str) -> str:
+    airtable_url = os.path.join(AIRTABLE_BASE_URL, base_id, table_id)
+    template = Template("""<!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Today's Technical Content Recommendations, ${date}</title>
+    </head>
+    <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; text-align: center; max-width: 600px; margin: 0 auto; padding: 20px;">
+        <h1 style="color: #2c3e50;">Recommendations🚀</h1>
+        
+        <p>
+            Our language model has curated a list of top recommendations, just for you.
+        </p>
+        
+        <p>
+            <a href=${airtable_url} style="background-color: #3498db; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                View Recommendations in Airtable
+            </a>
+        </p>
+        
+        <p>All the best,<br>Your Recommendation Engine</p>
+    </body>
+    </html>
+    """
+    )
+    return template.substitute(date=date, airtable_url=airtable_url)
+
+
+def send_email(content: str, date: str, sender_email: str, receiver_email: str, app_password: str) -> bool:
     
     # Create a multipart message
     message = MIMEMultipart()
@@ -239,4 +285,4 @@ And there we have an email, sent directly into my inbox.
 
 # Next Steps
 
-I've got a nice functional recommendation system - but currently failing to make many decent recommendations. Next, I think I'm going do some more reading and have a go at augmenting my existing dataset of previously read articles with some negative examples, and then think about doing some supervised fine-tuning.
+I've got a nice functional recommendation system - which is failing to make m/any decent recommendations. We'll fix this in part 2.
