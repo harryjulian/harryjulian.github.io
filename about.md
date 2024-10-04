@@ -4,6 +4,8 @@ title: About
 permalink: /about/
 ---
 
-I'm a Machine Learning Engineer at [Neuphonic](https://neuphonic.com/), working on all things speech synthesis.
+I'm a Machine Learning Engineer based in London.
 
-I'm a big fan of JAX and Rust (when I'm not wrestling with their sharp edges).
+I currently work on all things speech synthesis at [Neuphonic](https://neuphonic.com/).
+
+I'm a big fan of JAX (when I'm not wrestling with it's sharp edges).
