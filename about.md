@@ -4,8 +4,6 @@ title: About
 permalink: /about/
 ---
 
-I'm a Machine Learning Engineer based in London.
+I'm currently based in London, working on all things speech synthesis at [Neuphonic](https://neuphonic.com/).
 
-I currently work on all things speech synthesis at [Neuphonic](https://neuphonic.com/).
-
-I'm a big fan of JAX (when I'm not wrestling with it's sharp edges).
+Currently, my research interests are centered around zero-shot TTS and curating high-quality, in-the-wild speech datasets at scale.
