@@ -2,10 +2,11 @@
 
 source "https://rubygems.org"
 
-gem "webrick", "~> 1.7"
+gem "kramdown-parser-gfm"
+gem "webrick"
+gem "csv"
+gem "bigdecimal"
+gem "base64"
+gem "logger"
 
-group :jekyll_plugins do
-  gem 'jekyll-seo-tag'
-  gem 'jekyll-sitemap'
-  gem 'jekyll-feed'
-end
+gemspec

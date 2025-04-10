@@ -2,11 +2,14 @@
 layout: default
 ---
 
-<div class="post">
-  <h1>{{ page.title }}</h1>
-  <span class="fs-4 text-muted">{{ page.date | date: "%b %d, %y" }}</span>
-  <div class="mt-4">{{ content }}</div>
-</div>
+{%-include back_link.html-%}
 
-<script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML"
-  type="text/javascript"></script>
+<article>
+  <p class="post-meta">
+    <time datetime="{{ page.date }}">{{ page.date | date: site.theme_config.date_format }}</time>
+  </p>
+  
+  <h1>{{ page.title }}</h1>
+
+  {{ content }}
+</article>

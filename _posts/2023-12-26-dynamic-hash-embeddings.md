@@ -163,7 +163,7 @@ It’d be nice to revisit this to make the main body of the function compatible 
 
 Anyway, we have a completed dynamic embedding function! I’m always a little bit worried I’ve made a mistake when I’m implementing code from papers with no programmatic reference, so I wrote a couple of tests to ensure the embedding function satisfies the properties we mentioned earlier.
 
-![Hell yeah](/assets/images/testspass.png)
+![Hell yeah]({{ '/assets/images/testspass.png' | relative_url }})
 
 
 ## Epilogue
