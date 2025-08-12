@@ -1,5 +1,4 @@
 *.gem
-*.css
 *.css.map
 .bundle
 .jekyll-cache
