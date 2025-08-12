@@ -3,11 +3,16 @@
   filter: invert(1);
   img {
     filter: invert(1);
-
     &.ioda { filter: invert(0); }
   }
   .emoji { filter: invert(1); }
   iframe {
+    filter: invert(1);
+  }
+  
+  // Add this - prevent syntax highlighting from being inverted
+  .highlight, 
+  div.highlighter-rouge {
     filter: invert(1);
   }
 }
@@ -72,15 +77,23 @@ table, th, td {
 }
 
 code {
-  color: white;
-  background: black;
+  background-color: #272822; /* Monokai dark background */
+  color: #f8f8f2;             /* Monokai light foreground text */
+  padding: 2px 4px;           /* Small padding for readability */
+  border-radius: 3px;         /* Subtle rounded corners */
 }
 
 div.highlighter-rouge code {
+  color: inherit;
+  background: transparent;  // Not gray - transparent!
   display: block;
   overflow-x: auto;
   white-space: pre-wrap;
   padding: 1rem;
+  margin-left: -4rem;
+  margin-right: -4rem;
+  padding-left: 5rem;
+  padding-right: 5rem;
 }
 
 blockquote {
