@@ -1,6 +1,6 @@
 ---
 layout: post
-title: releasing neucodec
+title: Releasing Neucodec
 ---
 
 This week at Neuphonic we’re releasing our first open-source model to the community - [neucodec](https://huggingface.co/neuphonic/neucodec) - the neural audio codec that powers our TTS models. 
